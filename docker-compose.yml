@@ -1,0 +1,75 @@
+name: agent-management-platform
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-amp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amp_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-agent_platform}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - amp_postgres_data:/var/lib/postgresql/data
+    networks:
+      - amp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-amp} -d ${POSTGRES_DB:-agent_platform}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://amp:amp_dev_password@postgres:5432/agent_platform}
+      API_TOKEN: ${API_TOKEN:-change-me-to-a-long-random-token}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      AGENTS_DATA_DIR: /data/agents
+      EXECUTION_MODE: ${EXECUTION_MODE:-docker}
+      DOCKER_NETWORK: ${DOCKER_NETWORK:-agent-management-platform_amp}
+      DEFAULT_AGENT_IMAGE: ${DEFAULT_AGENT_IMAGE:-python:3.12-slim}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-ollama}
+      DEFAULT_LLM_MODEL: ${DEFAULT_LLM_MODEL:-llama3}
+      LLM_API_BASE: ${LLM_API_BASE:-http://ollama:11434}
+    ports:
+      - "${API_PUBLISH_PORT:-8081}:8081"
+    volumes:
+      - amp_agents_data:/data/agents
+      - ./agents:/agents:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - amp
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  ollama:
+    profiles: ["llm"]
+    image: ollama/ollama:latest
+    volumes:
+      - amp_ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PUBLISH_PORT:-11435}:11434"
+    networks:
+      - amp
+    restart: unless-stopped
+
+volumes:
+  amp_postgres_data:
+  amp_agents_data:
+  amp_ollama_data:
+
+networks:
+  amp:
+    driver: bridge

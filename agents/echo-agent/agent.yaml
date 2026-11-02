@@ -1,0 +1,46 @@
+apiVersion: amp/v1
+id: echo-agent
+name: Echo Agent
+description: Returns structured inputs for platform smoke tests. No LLM required.
+version: 0.1.0
+entrypoint: src.main:run
+
+inputSchema:
+  type: object
+  properties:
+    message:
+      type: string
+      description: Text to echo back
+    fail:
+      type: boolean
+      description: If true, return a deliberate failure
+      default: false
+  required: [message]
+
+outputSchema:
+  type: object
+  properties:
+    echo:
+      type: string
+    received_at:
+      type: string
+
+dependencies: []
+
+permissions:
+  network: false
+  filesystem_write: false
+  cloud_read: false
+  cloud_write: false
+  docker_socket: false
+
+runtime:
+  kind: docker
+  python: "3.12"
+  timeout_seconds: 60
+  memory_mb: 256
+  cpu: 0.5
+
+tags:
+  - example
+  - smoke-test
