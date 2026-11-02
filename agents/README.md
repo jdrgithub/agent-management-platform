@@ -18,7 +18,12 @@ Authors will still recognize familiar building blocks:
 - A plain **Python function** as the entrypoint
 - Optional **Docker** image / resource limits for isolated runs
 
-Those are common practices; the *package shape* (`agent.yaml` + entrypoint rules) is defined only by this platform. Full field reference: [docs/AGENT_CONTRACT.md](../docs/AGENT_CONTRACT.md). Example package: [echo-agent](./echo-agent).
+Those are common practices; the *package shape* (`agent.yaml` + entrypoint rules) is defined only by this platform. Full field reference: [docs/AGENT_CONTRACT.md](../docs/AGENT_CONTRACT.md).
+
+Examples in this repo:
+
+- [echo-agent](./echo-agent) — no network, no LLM, no cloud
+- [aws-cost-agent](./aws-cost-agent) — AWS Cost Explorer totals by service and by resource (host `~/.aws` via `HOST_AWS_DIR`)
 
 ## Minimum requirements
 
@@ -61,16 +66,31 @@ my-agent/
 
 Ship as a directory, or as `.zip` / `.tar.gz` / `.tgz` (archive may wrap a single top-level folder).
 
+If `requirements.txt` is present, the Docker runner **`pip install`s it** at the start of each run (needs `permissions.network: true` to reach PyPI).
+
 ## Permissions and runtime
 
 Set only what the agent needs in `agent.yaml`:
 
-- `permissions.network` — required for outbound HTTP / LLM / cloud APIs
-- `permissions.cloud_read` / `cloud_write` — document intent; enforce in your agent code
+- `permissions.network` — required for outbound HTTP / LLM / cloud APIs / `pip install`
+- `permissions.cloud_read` — when platform `HOST_AWS_DIR` is set, mounts that host `.aws` directory read-only into the run container; also documents cloud-read intent in your code
+- `permissions.cloud_write` — document intent; enforce in your agent code
 - `runtime.image` — custom image; `null` uses the platform default (`python:3.12-slim`)
 - `runtime.timeout_seconds`, `memory_mb`, `cpu` — execution limits
 
-Agents that call hosted or local LLMs should set `permissions.network: true` and usually declare `llm` defaults (overridable at install/config time in the UI).
+Agents that call hosted or local LLMs should set `permissions.network: true` and usually declare `llm` defaults (overridable at install/config time in the UI). The `llm` block is **defaults only** — the platform does not auto-prompt.
+
+## How execution, LLMs, and AWS work
+
+Agents run as **programs** (default: isolated Docker containers calling `run(inputs, context)`).
+
+**LLM (optional):** only used if **your agent code** calls one. There is no chat UI.
+
+- The platform may pass resolved settings in `context["llm"]` (provider, model, API base).
+- Local inference: `docker compose --profile llm up -d` starts Ollama and **auto-pulls** `DEFAULT_LLM_MODEL` (default `llama3`). Host port defaults to `11435`.
+- Agents that never call a model (like `echo-agent` or `aws-cost-agent`) do not need the `llm` profile.
+
+**AWS / cloud (optional):** for agents like `aws-cost-agent`, set `HOST_AWS_DIR` to your host `~/.aws` path and `permissions.cloud_read: true`. boto3 uses the normal CLI credential chain inside the container. See [aws-cost-agent/README.md](./aws-cost-agent/README.md) and [docs/INSTALL.md](../docs/INSTALL.md).
 
 ## Install into the platform
 

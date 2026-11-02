@@ -1,0 +1,66 @@
+apiVersion: amp/v1
+id: aws-cost-agent
+name: AWS Cost Agent
+description: >
+  Reports AWS totals by service and by resource (dollar amounts from Cost Explorer).
+  Uses host ~/.aws via HOST_AWS_DIR — no keys in agent config.
+version: 0.1.3
+entrypoint: src.main:run
+
+inputSchema:
+  type: object
+  properties:
+    lookback_days:
+      type: integer
+      description: >
+        Days of Cost Explorer data for service totals (max 90). Per-resource
+        costs are capped at 14 days by the AWS API.
+      default: 30
+      minimum: 1
+      maximum: 90
+    max_resources:
+      type: integer
+      description: Max resources to return (highest spend first)
+      default: 100
+      minimum: 1
+      maximum: 500
+    aws_profile:
+      type: string
+      description: Optional named profile from ~/.aws/credentials
+
+outputSchema:
+  type: object
+  properties:
+    period:
+      type: object
+    currency:
+      type: string
+    total_cost:
+      type: number
+    cost_by_service:
+      type: array
+    resources:
+      type: array
+      description: Resources with Cost Explorer amounts
+
+dependencies:
+  - boto3
+
+permissions:
+  network: true
+  filesystem_write: false
+  cloud_read: true
+  cloud_write: false
+  docker_socket: false
+
+runtime:
+  kind: docker
+  python: "3.12"
+  timeout_seconds: 300
+  memory_mb: 512
+  cpu: 1.0
+
+tags:
+  - example
+  - aws
+  - cost

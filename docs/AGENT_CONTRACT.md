@@ -38,10 +38,11 @@ dependencies: []               # optional pip/package hints
 permissions:
   network: false
   filesystem_write: false
-  cloud_read: false
+  cloud_read: false            # true → platform may mount HOST_AWS_DIR as /root/.aws:ro
   cloud_write: false
   docker_socket: false
 
+# Optional defaults only — the platform does not auto-call a model
 llm:
   provider: ollama
   model: llama3
@@ -57,6 +58,12 @@ runtime:
 
 tags: [example]
 ```
+
+Notes:
+
+- If `requirements.txt` is present, the Docker runner installs it with `pip` before importing the entrypoint (needs `permissions.network`).
+- `cloud_read: true` plus API env `HOST_AWS_DIR` mounts the host AWS CLI directory into the run container for boto3’s default credential chain.
+- The `llm` manifest block supplies defaults into `context["llm"]`; agents must call a model themselves if they want one.
 
 ## Entrypoint
 

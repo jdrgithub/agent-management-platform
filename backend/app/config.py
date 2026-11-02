@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     docker_network: str = "agent-management-platform_amp"
     default_agent_image: str = "python:3.12-slim"
     docker_socket: str = "unix:///var/run/docker.sock"
+    # Host path to ~/.aws (Docker daemon view). Mounted into agents with cloud_read.
+    host_aws_dir: str = ""
 
 
 @lru_cache

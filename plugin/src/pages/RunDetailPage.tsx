@@ -6,6 +6,7 @@ import { PluginPage } from '@grafana/runtime';
 import { css } from '@emotion/css';
 
 import { api, ExecutionDetail } from '../api/client';
+import { AgentOutputView } from '../components/AgentOutputView';
 import { prefixRoute } from '../utils/utils.routing';
 import { ROUTES } from '../constants';
 
@@ -120,7 +121,7 @@ export default function RunDetailPage() {
               <Card.Heading>Outputs</Card.Heading>
               <Card.Description>
                 {run.error && <Alert title="Error">{run.error}</Alert>}
-                <pre className={styles.pre}>{JSON.stringify(run.outputs ?? null, null, 2)}</pre>
+                <AgentOutputView outputs={run.outputs ?? null} />
               </Card.Description>
             </Card>
           </>

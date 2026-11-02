@@ -16,6 +16,7 @@ import { PluginPage } from '@grafana/runtime';
 import { css } from '@emotion/css';
 
 import { api, AgentDetail, ExecutionDetail } from '../api/client';
+import { AgentOutputView } from '../components/AgentOutputView';
 import { prefixRoute } from '../utils/utils.routing';
 import { ROUTES } from '../constants';
 
@@ -212,7 +213,7 @@ export default function AgentDetailPage() {
                 {result.duration_ms != null ? ` · ${result.duration_ms.toFixed(0)} ms` : ''}
               </div>
               {result.error && <Alert title="Error">{result.error}</Alert>}
-              <pre className={styles.pre}>{JSON.stringify(result.outputs, null, 2)}</pre>
+              <AgentOutputView outputs={result.outputs ?? null} />
               <div className={styles.meta}>
                 <Link to={prefixRoute(`${ROUTES.History}/${result.run_id}`)}>View full run details →</Link>
               </div>

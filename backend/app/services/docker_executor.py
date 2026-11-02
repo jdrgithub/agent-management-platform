@@ -20,13 +20,19 @@ from app.services.llm import resolve_llm_config
 from app.services.steps import append_step
 
 RUNNER_SCRIPT = r'''
-import json, importlib, sys, traceback
+import json, importlib, subprocess, sys, traceback
 from pathlib import Path
 
 payload = json.loads(Path("/tmp/amp_payload.json").read_text())
 sys.path.insert(0, "/agent")
 module_name, func_name = payload["entrypoint"].split(":", 1)
 try:
+    req = Path("/agent/requirements.txt")
+    if req.is_file():
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--quiet", "-r", str(req)],
+            stdout=subprocess.DEVNULL,
+        )
     mod = importlib.import_module(module_name)
     func = getattr(mod, func_name)
     raw = func(payload["inputs"], payload["context"])
@@ -123,6 +129,17 @@ def execute_agent_docker(
         }
 
         permissions = manifest.get("permissions") or {}
+        environment: dict[str, str] = {
+            "OLLAMA_HOST": settings.llm_api_base,
+            "HOME": "/root",
+        }
+        profile = (
+            (inputs or {}).get("aws_profile")
+            or (agent.config or {}).get("aws_profile")
+        )
+        if profile:
+            environment["AWS_PROFILE"] = str(profile)
+
         create_kwargs: dict = {
             "image": image,
             "command": ["python", "/tmp/amp_runner.py"],
@@ -131,14 +148,24 @@ def execute_agent_docker(
             "mem_limit": f"{int(memory_mb)}m",
             "nano_cpus": nano_cpus,
             "working_dir": "/agent",
-            "environment": {
-                "OLLAMA_HOST": settings.llm_api_base,
-            },
+            "environment": environment,
         }
         if permissions.get("network"):
             create_kwargs["network"] = settings.docker_network
         else:
             create_kwargs["network_mode"] = "none"
+
+        host_aws = (settings.host_aws_dir or "").strip()
+        if permissions.get("cloud_read") and host_aws:
+            create_kwargs["volumes"] = {
+                host_aws: {"bind": "/root/.aws", "mode": "ro"},
+            }
+            run.steps = append_step(
+                list(run.steps or []),
+                "aws_credentials_mounted",
+                detail=f"host={host_aws} -> /root/.aws:ro",
+            )
+            db.commit()
 
         container = client.containers.create(**create_kwargs)
         run.container_id = container.id
